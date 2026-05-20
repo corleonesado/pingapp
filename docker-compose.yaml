@@ -1,0 +1,19 @@
+services:
+  pingapp:
+    build:
+      context: .
+      args:
+        VERSION: compose-dev
+    image: pingapp:dev
+    container_name: pingapp
+    ports:
+      - "8080:8080"
+    environment:
+      PORT: "8080"
+      LOG_LEVEL: info
+    restart: unless-stopped
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
