@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-05-21
+
 ### Added
 - Tiny HTTP service in Go with `/ping`, `/healthz`, and `/version` endpoints.
 - Structured JSON logging via `log/slog`.
@@ -19,5 +21,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Liveness + readiness probes on `/healthz`; optional startup probe behind a flag.
 - Container security context: `runAsNonRoot`, `readOnlyRootFilesystem`, `cap drop ALL`, `seccompProfile: RuntimeDefault`.
 - Makefile targets `minikube-up/down`, `minikube-load`, `helm-lint`, `helm-template-{dev,prod}`, `deploy-dev`, `deploy-prod`, `rollback`, `history`, `status`, `uninstall`.
+- CI workflow (`.github/workflows/ci.yml`): test (race + cover), golangci-lint, gitleaks, docker build, Trivy scan (fail on HIGH/CRITICAL), and a main-only GHCR push of the immutable `:<sha>` tag.
+- Release workflow (`.github/workflows/release.yml`): on `v*.*.*` tag — build, Trivy scan, push `:<semver>` + `:<sha>`, generate an SPDX SBOM with Syft, and create a GitHub Release with notes from this changelog.
+- `.golangci.yml` (golangci-lint v2) and a package comment to satisfy `revive`.
+- ArgoCD GitOps wiring under `deploy/argocd/` (Application + bootstrap docs) and Makefile targets `argocd-install`, `argocd-password`, `argocd-ui`, `argocd-app`.
 - ADR-0001: Language and runtime (Go on distroless).
 - ADR-0002: Helm over raw manifests / Kustomize.
+- ADR-0003: Auto-deploy on merge via ArgoCD GitOps (pull model).
+- ADR-0004: Image scanning gate (Trivy on HIGH/CRITICAL, ignore-unfixed).
+
+### Changed
+- Build toolchain bumped to `golang:1.26-alpine` so the compiled binary picks up Go stdlib security fixes; clears all Trivy HIGH/CRITICAL findings. The go.mod language floor stays at 1.22.
