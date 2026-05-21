@@ -1,0 +1,41 @@
+==================== HISTORY BEFORE ROLLBACK ====================
+
+$ helm history pingapp
+REVISION	UPDATED                 	STATUS    	CHART        	APP VERSION	DESCRIPTION     
+1       	Wed May 20 19:20:23 2026	superseded	pingapp-0.1.0	0.1.0      	Install complete
+2       	Wed May 20 19:21:21 2026	deployed  	pingapp-0.1.0	0.1.0      	Upgrade complete
+
+==================== ROLLBACK TO REVISION 1 (dev) ====================
+
+$ helm rollback pingapp 1 --wait
+Rollback was a success! Happy Helming!
+
+$ kubectl rollout status deployment/pingapp
+deployment "pingapp" successfully rolled out
+
+==================== STATE AFTER ROLLBACK ====================
+
+$ kubectl get pods,deployment,pdb,ingress -l app.kubernetes.io/instance=pingapp
+NAME                           READY   STATUS      RESTARTS   AGE
+pod/pingapp-77458c99b7-v44kz   1/1     Running     0          2s
+pod/pingapp-78c744c947-mlrvd   0/1     Completed   0          2m14s
+
+NAME                      READY   UP-TO-DATE   AVAILABLE   AGE
+deployment.apps/pingapp   1/1     1            1           3m14s
+
+NAME                                CLASS   HOSTS               ADDRESS        PORTS   AGE
+ingress.networking.k8s.io/pingapp   nginx   dev.pingapp.local   192.168.49.2   80      3m14s
+
+$ kubectl get configmap pingapp-config -o jsonpath='{.data}'
+{"LOG_LEVEL":"debug","PORT":"8080"}
+
+$ curl --resolve dev.pingapp.local:80:$(minikube ip) http://dev.pingapp.local/ping
+pong
+
+==================== FINAL HISTORY ====================
+
+$ helm history pingapp
+REVISION	UPDATED                 	STATUS    	CHART        	APP VERSION	DESCRIPTION     
+1       	Wed May 20 19:20:23 2026	superseded	pingapp-0.1.0	0.1.0      	Install complete
+2       	Wed May 20 19:21:21 2026	superseded	pingapp-0.1.0	0.1.0      	Upgrade complete
+3       	Wed May 20 19:23:34 2026	deployed  	pingapp-0.1.0	0.1.0      	Rollback to 1   

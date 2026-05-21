@@ -12,8 +12,8 @@ The brief lives in [`docs/case-study.pdf`](docs/case-study.pdf). The plan with l
 
 | Day | Theme | State |
 |---|---|---|
-| 1 | Foundation — app, container, repo | in progress |
-| 2 | Kubernetes & Helm | pending |
+| 1 | Foundation — app, container, repo | done |
+| 2 | Kubernetes & Helm | done |
 | 3 | CI/CD & supply-chain security | pending |
 | 4 | Observability & docs | pending |
 
@@ -77,6 +77,49 @@ All config is env-driven; see [`.env.example`](.env.example).
 
 ---
 
+## Kubernetes (Day 2)
+
+The Helm chart lives in [`charts/pingapp/`](charts/pingapp/). One chart, two values files; the chart is hand-rolled (not from `helm create`) — rationale in [ADR-0002](docs/decisions/0002-helm-over-raw-manifests.md).
+
+### Quick start
+
+```bash
+make minikube-up     # minikube start + ingress + metrics-server addons
+make deploy-dev      # builds image, loads into minikube, helm upgrade --install with dev values
+make status          # pods, svc, ingress, rollout status
+
+# /etc/hosts (one-time, optional — or use --resolve below):
+echo "$(minikube ip) dev.pingapp.local pingapp.local" | sudo tee -a /etc/hosts
+
+curl --resolve dev.pingapp.local:80:$(minikube ip) http://dev.pingapp.local/ping
+```
+
+### Dev vs prod
+
+|  | dev (`values-dev.yaml`) | prod (`values-prod.yaml`) |
+|---|---|---|
+| Replicas | **1** | **2** |
+| Ingress host | `dev.pingapp.local` | `pingapp.local` |
+| Log level | `debug` | `info` |
+| CPU request / limit | 25m / 100m | 50m / 200m |
+| Memory request / limit | 16Mi / 32Mi | 32Mi / 64Mi |
+| PodDisruptionBudget | disabled (1 replica) | `minAvailable: 1` |
+
+Probes (same in both): liveness on `/healthz` every 10s after 5s grace; readiness on `/healthz` every 5s after 2s. `restartPolicy` is the deployment default (`Always`). The container drops all Linux capabilities, runs as UID 65532, and uses a read-only root filesystem with `seccompProfile: RuntimeDefault`.
+
+### Rollout / rollback
+
+```bash
+make deploy-dev                           # rev 1
+make deploy-prod                          # rev 2 — replicas 1→2, dev→prod host
+make history                              # see helm history
+make rollback                             # back to rev 2 (or any earlier with `helm rollback pingapp <n>`)
+```
+
+Evidence from a clean run is captured in [`docs/screenshots/`](docs/screenshots/) (text logs of `kubectl`, `helm history`, and ingress curls — screenshots come on Day 4 with Grafana panels).
+
+---
+
 ## Architecture (Day 1 slice)
 
 ```
@@ -98,8 +141,9 @@ Days 2–4 will extend this into: docker → minikube (Helm chart, ingress) → 
 ADRs live in [`docs/decisions/`](docs/decisions/). Currently:
 
 - [ADR-0001 — Language and runtime: Go on distroless](docs/decisions/0001-language-and-runtime.md)
+- [ADR-0002 — Helm over raw manifests / Kustomize](docs/decisions/0002-helm-over-raw-manifests.md)
 
-Planned: ADR-0002 (Helm), ADR-0003 (auto-deploy strategy), ADR-0004 (Trivy thresholds), ADR-0005 (tunnel choice).
+Planned: ADR-0003 (auto-deploy strategy), ADR-0004 (Trivy thresholds), ADR-0005 (tunnel choice).
 
 ---
 

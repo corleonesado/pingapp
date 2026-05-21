@@ -1,0 +1,31 @@
+==================== ROLLOUT: dev -> prod ====================
+
+$ helm upgrade pingapp charts/pingapp -f values-prod.yaml --wait
+
+  kubectl get pods,svc,ingress -l app.kubernetes.io/instance=pingapp
+  helm history pingapp
+
+$ kubectl rollout status deployment/pingapp
+deployment "pingapp" successfully rolled out
+
+$ kubectl get pods,deployment,pdb,ingress -l app.kubernetes.io/instance=pingapp
+NAME                           READY   STATUS      RESTARTS   AGE
+pod/pingapp-77458c99b7-lhlkn   0/1     Completed   0          62s
+pod/pingapp-77458c99b7-xj5xz   0/1     Completed   0          4s
+pod/pingapp-78c744c947-5p4vg   1/1     Running     0          4s
+pod/pingapp-78c744c947-mlrvd   1/1     Running     0          2s
+
+NAME                      READY   UP-TO-DATE   AVAILABLE   AGE
+deployment.apps/pingapp   2/2     2            2           62s
+
+NAME                                 MIN AVAILABLE   MAX UNAVAILABLE   ALLOWED DISRUPTIONS   AGE
+poddisruptionbudget.policy/pingapp   1               N/A               1                     4s
+
+NAME                                CLASS   HOSTS           ADDRESS        PORTS   AGE
+ingress.networking.k8s.io/pingapp   nginx   pingapp.local   192.168.49.2   80      62s
+
+$ kubectl get configmap pingapp-config -o jsonpath='{.data}'
+{"LOG_LEVEL":"info","PORT":"8080"}
+
+$ curl --resolve pingapp.local:80:$(minikube ip) http://pingapp.local/ping
+pong

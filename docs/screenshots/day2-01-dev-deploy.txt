@@ -1,0 +1,30 @@
+==================== DAY 2 EVIDENCE ====================
+
+### release 1: dev install (1 replica, debug, dev.pingapp.local) ###
+Wed May 20 19:20:59 HKT 2026
+
+$ helm list
+NAME   	NAMESPACE	REVISION	UPDATED                             	STATUS  	CHART        	APP VERSION
+pingapp	default  	1       	2026-05-20 19:20:23.420449 +0800 HKT	deployed	pingapp-0.1.0	0.1.0      
+
+$ kubectl get pods,svc,ingress,configmap -l app.kubernetes.io/instance=pingapp
+NAME                           READY   STATUS    RESTARTS   AGE
+pod/pingapp-77458c99b7-lhlkn   1/1     Running   0          36s
+
+NAME              TYPE        CLUSTER-IP     EXTERNAL-IP   PORT(S)   AGE
+service/pingapp   ClusterIP   10.108.4.246   <none>        80/TCP    36s
+
+NAME                                CLASS   HOSTS               ADDRESS        PORTS   AGE
+ingress.networking.k8s.io/pingapp   nginx   dev.pingapp.local   192.168.49.2   80      36s
+
+NAME                       DATA   AGE
+configmap/pingapp-config   2      36s
+
+$ kubectl get deployment pingapp -o jsonpath='{.spec.replicas}'
+1
+
+$ kubectl get configmap pingapp-config -o jsonpath='{.data}'
+{"LOG_LEVEL":"debug","PORT":"8080"}
+
+$ curl --resolve dev.pingapp.local:80:$(minikube ip) http://dev.pingapp.local/ping
+pong

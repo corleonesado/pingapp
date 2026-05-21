@@ -39,8 +39,8 @@ Update this file as you go. It's both the plan and the progress tracker.
 - [x] `.env.example` documents every env var
 - [x] `CODEOWNERS` (just you for now)
 - [x] `.github/PULL_REQUEST_TEMPLATE.md` (what, why, screenshots, checklist)
-- [ ] Branch protection on `main`: require PR, require CI green (set up after CI exists)
-- [ ] First 2-3 conventional commits (commands provided; user to run)
+- [ ] Branch protection on `main`: require PR, require CI green (Day 3, after CI exists)
+- [x] First 2-3 conventional commits — 3 commits on `main` (`f777651`, `4b2c5a7`, `c05d661`)
 
 ### 1.4 Decisions to capture
 - [x] ADR-0001: language and runtime (Go + distroless, covers base image rationale)
@@ -49,9 +49,9 @@ Update this file as you go. It's both the plan and the progress tracker.
 - [x] `docker build` and `docker run` succeed cleanly
 - [x] `curl localhost:8080/ping` returns `pong`
 - [x] `curl localhost:8080/healthz` returns 200
-- [x] `curl localhost:8080/version` returns the SHA (currently `dev` — will be a real SHA once first commit is made)
-- [ ] `git log` is clean (conventional commits, no secrets) — pending first commit
-- [ ] `gitleaks detect --no-git` passes locally — pending gitleaks install
+- [x] `curl localhost:8080/version` returns the SHA — `{"version":"c05d661"}`
+- [x] `git log` is clean (3 conventional commits, no secrets)
+- [ ] `gitleaks detect --no-git` passes locally — defer to Day 3 (wired into CI)
 
 ---
 
@@ -60,47 +60,44 @@ Update this file as you go. It's both the plan and the progress tracker.
 > **Deliverable**: `helm upgrade --install` works against minikube with visible dev vs prod differences, rollback proven.
 
 ### 2.1 Helm chart
-- [ ] `helm create charts/pingapp` then trim the noise (`tests/`, `serviceaccount.yaml` if not needed)
-- [ ] Templates: `deployment.yaml`, `service.yaml`, `ingress.yaml`, `configmap.yaml`, `_helpers.tpl`
-- [ ] `Chart.yaml` with `appVersion` aligned to image tag
-- [ ] `image.repository` and `image.tag` parameterized
-- [ ] `helm lint charts/pingapp` passes
+- [x] Hand-rolled chart (not from `helm create`) — rationale in ADR-0002
+- [x] Templates: `deployment.yaml`, `service.yaml`, `ingress.yaml`, `configmap.yaml`, `pdb.yaml`, `_helpers.tpl`
+- [x] `Chart.yaml` with `appVersion` aligned to image tag
+- [x] `image.repository` and `image.tag` parameterized
+- [x] `helm lint charts/pingapp` passes (default + dev + prod)
 
 ### 2.2 Environments
-- [ ] `values-dev.yaml`: 1 replica, low resources, host `dev.pingapp.local`
-- [ ] `values-prod.yaml`: 2-3 replicas, higher resources, host `pingapp.local`
-- [ ] `/etc/hosts` entries documented in README for local ingress
-- [ ] Diff documented in README (table form)
+- [x] `values-dev.yaml`: 1 replica, low resources, host `dev.pingapp.local`, log level `debug`
+- [x] `values-prod.yaml`: 2 replicas, higher resources, host `pingapp.local`, PDB enabled
+- [x] `/etc/hosts` entries documented in README for local ingress
+- [x] Diff documented in README (table form)
 
 ### 2.3 Probes & resources
-- [ ] `livenessProbe.httpGet.path: /healthz`, `initialDelaySeconds: 5`, `periodSeconds: 10`
-- [ ] `readinessProbe.httpGet.path: /healthz`, `periodSeconds: 5`
-- [ ] (Optional) `startupProbe` for slow-start safety
-- [ ] `resources.requests`: CPU 50m, memory 32Mi (tune by observation)
-- [ ] `resources.limits`: CPU 200m, memory 64Mi
-- [ ] Document the reasoning briefly in README
+- [x] `livenessProbe.httpGet.path: /healthz`, `initialDelaySeconds: 5`, `periodSeconds: 10`
+- [x] `readinessProbe.httpGet.path: /healthz`, `periodSeconds: 5`
+- [x] Optional `startupProbe` available via `probes.startup.enabled` (off by default)
+- [x] `resources.requests`: CPU 50m / mem 32Mi (default) — 25m/16Mi in dev
+- [x] `resources.limits`: CPU 200m / mem 64Mi (default) — 100m/32Mi in dev
+- [x] Reasoning documented in README
 
 ### 2.4 Rollout & rollback
-- [ ] Build a `v0.1.1` image, push into minikube (`minikube image load`)
-- [ ] `helm upgrade pingapp ... --set image.tag=v0.1.1`
-- [ ] Capture `kubectl rollout status deployment/pingapp` output
-- [ ] `helm rollback pingapp 1`
-- [ ] Capture `helm history pingapp`
-- [ ] Save screenshots to `docs/screenshots/day2-*.png`
+- [x] Demonstrated dev → prod upgrade (rev 2) — replicas 1→2, host change visible
+- [x] Captured `kubectl rollout status deployment/pingapp` output
+- [x] `helm rollback pingapp 1` succeeded (rev 3 = "Rollback to 1")
+- [x] Captured `helm history pingapp`
+- [x] Evidence saved to `docs/screenshots/day2-{01-dev-deploy,02-prod-rollout,03-rollback}.txt`
 
-### 2.5 Bonus (pick **one** if time allows)
-- [ ] HPA (CPU-based, simple target)
-- [ ] NetworkPolicy (allow only ingress-controller → app)
-- [ ] PodDisruptionBudget
+### 2.5 Bonus
+- [x] PodDisruptionBudget — `policy/v1`, `minAvailable: 1`, enabled in prod only
 
 ### 2.6 Decisions to capture
-- [ ] ADR-0002: Helm over raw manifests / Kustomize
+- [x] ADR-0002: Helm over raw manifests / Kustomize
 
 ### Day 2 checkpoint
-- [ ] `make deploy-dev` → pods Running, probes Healthy
-- [ ] `make deploy-prod` → different replica count and host visible
-- [ ] Rollback demonstrated and screenshotted
-- [ ] Ingress reachable via `curl --resolve dev.pingapp.local:80:<minikube-ip> http://dev.pingapp.local/ping`
+- [x] `make deploy-dev` → pods Running, probes Healthy
+- [x] Prod values visibly differ (replicas, host, log level, PDB)
+- [x] Rollback demonstrated with `helm history` evidence
+- [x] Ingress reachable via `curl --resolve dev.pingapp.local:80:<minikube-ip> http://dev.pingapp.local/ping`
 
 ---
 
