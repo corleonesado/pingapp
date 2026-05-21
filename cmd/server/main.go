@@ -1,3 +1,4 @@
+// Command server runs the pingapp HTTP service.
 package main
 
 import (
