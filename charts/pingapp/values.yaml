@@ -1,0 +1,75 @@
+# Default values for the pingapp chart.
+# Override per-environment in values-dev.yaml / values-prod.yaml.
+
+image:
+  repository: pingapp
+  tag: dev
+  # IfNotPresent so minikube uses the image loaded via `minikube image load`
+  # instead of trying to pull it from a registry.
+  pullPolicy: IfNotPresent
+
+replicaCount: 1
+
+service:
+  type: ClusterIP
+  port: 80
+
+ingress:
+  enabled: true
+  className: nginx
+  host: pingapp.local
+  path: /
+
+resources:
+  requests:
+    cpu: 50m
+    memory: 32Mi
+  limits:
+    cpu: 200m
+    memory: 64Mi
+
+probes:
+  liveness:
+    path: /healthz
+    initialDelaySeconds: 5
+    periodSeconds: 10
+    failureThreshold: 3
+  readiness:
+    path: /healthz
+    initialDelaySeconds: 2
+    periodSeconds: 5
+    failureThreshold: 3
+  startup:
+    enabled: false
+    path: /healthz
+    periodSeconds: 2
+    failureThreshold: 30
+
+config:
+  logLevel: info
+  port: 8080
+
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 65532
+  runAsGroup: 65532
+  fsGroup: 65532
+  seccompProfile:
+    type: RuntimeDefault
+
+containerSecurityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop:
+      - ALL
+
+# PodDisruptionBudget — only enable when replicaCount > 1, otherwise it blocks
+# voluntary disruption (node drain, rollout) on a single-replica deployment.
+pdb:
+  enabled: false
+  minAvailable: 1
+
+# nameOverride / fullnameOverride left empty — release name drives resource names.
+nameOverride: ""
+fullnameOverride: ""

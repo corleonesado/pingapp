@@ -1,0 +1,11 @@
+# Helm packaging excludes — see https://helm.sh/docs/topics/chart_template_guide/helm_ignore_file/
+.DS_Store
+.git/
+.gitignore
+.idea/
+.vscode/
+*.bak
+*.swp
+*.tmp
+*.orig
+*~

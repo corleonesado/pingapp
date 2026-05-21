@@ -1,0 +1,14 @@
+apiVersion: v2
+name: pingapp
+description: A tiny HTTP service for the Insider One DevOps case study.
+type: application
+
+# Chart version — bumped on chart-shape changes (templates, probes, defaults).
+version: 0.1.0
+# App version — bumped on application image releases. Kept in sync with the
+# image tag at release time (see CHANGELOG.md and release.yml).
+appVersion: "0.1.0"
+
+home: https://github.com/corleonesado/pingapp
+maintainers:
+  - name: Sadettin Er

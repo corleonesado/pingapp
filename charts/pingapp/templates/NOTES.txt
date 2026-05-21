@@ -1,0 +1,20 @@
+{{ include "pingapp.fullname" . }} is now running.
+
+  replicaCount : {{ .Values.replicaCount }}
+  image        : {{ .Values.image.repository }}:{{ .Values.image.tag }}
+  log level    : {{ .Values.config.logLevel }}
+  ingress host : {{ .Values.ingress.host }}
+
+Reach the app (minikube + ingress):
+
+  echo "$(minikube ip) {{ .Values.ingress.host }}" | sudo tee -a /etc/hosts
+  curl http://{{ .Values.ingress.host }}/ping
+
+Or, without touching /etc/hosts:
+
+  curl --resolve {{ .Values.ingress.host }}:80:$(minikube ip) http://{{ .Values.ingress.host }}/ping
+
+Inspect:
+
+  kubectl get pods,svc,ingress -l app.kubernetes.io/instance={{ .Release.Name }}
+  helm history {{ .Release.Name }}

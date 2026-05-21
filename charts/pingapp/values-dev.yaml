@@ -1,0 +1,20 @@
+# Dev overrides — small footprint, verbose logs, no PDB (single replica).
+
+replicaCount: 1
+
+ingress:
+  host: dev.pingapp.local
+
+config:
+  logLevel: debug
+
+resources:
+  requests:
+    cpu: 25m
+    memory: 16Mi
+  limits:
+    cpu: 100m
+    memory: 32Mi
+
+pdb:
+  enabled: false
