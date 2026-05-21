@@ -103,3 +103,19 @@ status: ## Show pods, service, ingress, and rollout status.
 	kubectl get pods,svc,ingress -l app.kubernetes.io/instance=$(RELEASE) -n $(NAMESPACE)
 	@echo "---"
 	kubectl rollout status deployment/$(RELEASE) -n $(NAMESPACE) --timeout=10s || true
+
+# ---- ArgoCD GitOps (Track B auto-deploy) -----------------------------------
+
+argocd-install: ## Install ArgoCD into the argocd namespace.
+	kubectl create namespace argocd --dry-run=client -o yaml | kubectl apply -f -
+	kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
+	kubectl rollout status deploy/argocd-server -n argocd --timeout=180s
+
+argocd-password: ## Print the initial ArgoCD admin password.
+	@kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath='{.data.password}' | base64 -d; echo
+
+argocd-ui: ## Port-forward the ArgoCD UI to https://localhost:8081 (admin / see argocd-password).
+	kubectl port-forward svc/argocd-server -n argocd 8081:443
+
+argocd-app: ## Apply the pingapp Application (override image tag with TAG=vX.Y.Z).
+	sed 's|value: v0.1.0|value: $(TAG)|' deploy/argocd/application.yaml | kubectl apply -f -

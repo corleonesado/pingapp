@@ -1,0 +1,34 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: pingapp
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/corleonesado/pingapp.git
+    targetRevision: main
+    path: charts/pingapp
+    helm:
+      valueFiles:
+        - values-prod.yaml
+      # Point the chart at the GHCR image instead of the local `pingapp:dev`.
+      # Override image.tag via `make argocd-app TAG=v0.1.0` (or edit here).
+      parameters:
+        - name: image.repository
+          value: ghcr.io/corleonesado/pingapp
+        - name: image.tag
+          value: v0.1.0
+        - name: image.pullPolicy
+          value: IfNotPresent
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: default
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
