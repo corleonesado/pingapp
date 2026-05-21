@@ -14,7 +14,7 @@ The brief lives in [`docs/case-study.pdf`](docs/case-study.pdf). The plan with l
 |---|---|---|
 | 1 | Foundation — app, container, repo | done |
 | 2 | Kubernetes & Helm | done |
-| 3 | CI/CD & supply-chain security | pending |
+| 3 | CI/CD & supply-chain security | done |
 | 4 | Observability & docs | pending |
 
 ---
@@ -120,6 +120,34 @@ Evidence from a clean run is captured in [`docs/screenshots/`](docs/screenshots/
 
 ---
 
+## CI/CD & supply chain (Day 3)
+
+Two workflows under [`.github/workflows/`](.github/workflows/):
+
+**`ci.yml`** — on PRs and pushes to `main`:
+
+| Job | What |
+|---|---|
+| `test` | `go test ./... -race -cover` (module + build cache) |
+| `lint` | `golangci-lint` (config in `.golangci.yml`) |
+| `gitleaks` | secret scan across full history |
+| `build & scan` | docker build → **Trivy** (fails on HIGH/CRITICAL, `--ignore-unfixed`) → push `:<sha>` to GHCR **(main only)** |
+
+Concurrency cancels stale runs per ref. GHCR push uses the built-in `GITHUB_TOKEN` with `packages: write` — **no PATs**. Only the immutable `:<sha>` tag is pushed; there are no `:latest` tags anywhere ([ADR-0004](docs/decisions/0004-image-scanning-gate.md)).
+
+**`release.yml`** — on a `v*.*.*` tag: build → Trivy scan → push `:<semver>` + `:<sha>` → generate an SPDX **SBOM** with Syft → create a GitHub Release with notes pulled from `CHANGELOG.md` and the SBOM attached.
+
+### Auto-deploy — ArgoCD GitOps
+
+A GitHub-hosted runner can't reach a laptop-local minikube, so deploy is a **pull**: ArgoCD runs inside the cluster and syncs `charts/pingapp` from this repo. Setup and rationale: [`deploy/argocd/`](deploy/argocd/) and [ADR-0003](docs/decisions/0003-auto-deploy-argocd.md).
+
+```bash
+make argocd-install          # ArgoCD into the argocd namespace
+make argocd-app TAG=v0.1.0   # Application pointed at the GHCR image
+```
+
+---
+
 ## Architecture (Day 1 slice)
 
 ```
@@ -142,8 +170,10 @@ ADRs live in [`docs/decisions/`](docs/decisions/). Currently:
 
 - [ADR-0001 — Language and runtime: Go on distroless](docs/decisions/0001-language-and-runtime.md)
 - [ADR-0002 — Helm over raw manifests / Kustomize](docs/decisions/0002-helm-over-raw-manifests.md)
+- [ADR-0003 — Auto-deploy via ArgoCD GitOps](docs/decisions/0003-auto-deploy-argocd.md)
+- [ADR-0004 — Image scanning gate (Trivy HIGH/CRITICAL)](docs/decisions/0004-image-scanning-gate.md)
 
-Planned: ADR-0003 (auto-deploy strategy), ADR-0004 (Trivy thresholds), ADR-0005 (tunnel choice).
+Planned: ADR-0005 (tunnel choice, Day 4).
 
 ---
 
