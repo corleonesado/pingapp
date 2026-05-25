@@ -108,8 +108,9 @@ status: ## Show pods, service, ingress, and rollout status.
 
 argocd-install: ## Install ArgoCD into the argocd namespace.
 	kubectl create namespace argocd --dry-run=client -o yaml | kubectl apply -f -
-	kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
-	kubectl rollout status deploy/argocd-server -n argocd --timeout=180s
+	# --server-side avoids the "annotations Too long" failure on ArgoCD's large CRDs.
+	kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml --server-side --force-conflicts
+	kubectl rollout status deploy/argocd-server -n argocd --timeout=240s
 
 argocd-password: ## Print the initial ArgoCD admin password.
 	@kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath='{.data.password}' | base64 -d; echo
