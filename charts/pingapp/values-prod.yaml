@@ -1,6 +1,6 @@
 # Prod overrides — multiple replicas, tighter logs, PDB enabled.
 
-replicaCount: 2
+replicaCount: 3
 
 ingress:
   host: pingapp.local
