@@ -70,6 +70,20 @@ pdb:
   enabled: false
   minAvailable: 1
 
+# Prometheus Operator integration. Off by default so the chart installs
+# cleanly without the kube-prometheus-stack CRDs present.
+serviceMonitor:
+  enabled: false
+  interval: 15s
+  scrapeTimeout: 10s
+  additionalLabels: {}
+
+prometheusRule:
+  enabled: false
+  errorRateThreshold: 0.05 # 5% 5xx
+  errorRateFor: 2m
+  additionalLabels: {}
+
 # nameOverride / fullnameOverride left empty — release name drives resource names.
 nameOverride: ""
 fullnameOverride: ""

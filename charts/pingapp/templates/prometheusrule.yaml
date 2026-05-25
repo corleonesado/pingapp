@@ -1,0 +1,28 @@
+{{- if .Values.prometheusRule.enabled -}}
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: {{ include "pingapp.fullname" . }}
+  labels:
+    {{- include "pingapp.labels" . | nindent 4 }}
+    {{- with .Values.prometheusRule.additionalLabels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  groups:
+    - name: pingapp.rules
+      rules:
+        - alert: PingappHighErrorRate
+          expr: |
+            sum(rate(http_requests_total{job="{{ include "pingapp.fullname" . }}",status=~"5.."}[2m]))
+              /
+            sum(rate(http_requests_total{job="{{ include "pingapp.fullname" . }}"}[2m]))
+              > {{ .Values.prometheusRule.errorRateThreshold }}
+          for: {{ .Values.prometheusRule.errorRateFor }}
+          labels:
+            severity: warning
+            app: pingapp
+          annotations:
+            summary: "pingapp 5xx error rate above {{ .Values.prometheusRule.errorRateThreshold }} for {{ .Values.prometheusRule.errorRateFor }}"
+            description: "Error rate is {{`{{ $value | humanizePercentage }}`}}."
+{{- end }}
