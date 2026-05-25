@@ -79,6 +79,15 @@ func TestMiddlewareAssignsRequestIDWhenAbsent(t *testing.T) {
 	}
 }
 
+func TestChaosReturns500(t *testing.T) {
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/chaos", nil)
+	newMux("test").ServeHTTP(rec, req)
+	if rec.Code != http.StatusInternalServerError {
+		t.Fatalf("status: got %d, want 500", rec.Code)
+	}
+}
+
 func TestMiddlewarePropagatesIncomingRequestID(t *testing.T) {
 	const incoming = "11111111-2222-4333-8444-555555555555"
 	rec := httptest.NewRecorder()

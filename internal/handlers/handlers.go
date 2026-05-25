@@ -20,6 +20,10 @@ func Register(mux *http.ServeMux, version string) {
 	mux.HandleFunc("GET /ping", ping)
 	mux.HandleFunc("GET /healthz", healthz)
 	mux.HandleFunc("GET /version", versionHandler(version))
+	// /chaos always returns 500. Used by the Day 4 alert-fire demo
+	// (PrometheusRule on 5xx error rate). Cheap to leave in place; the
+	// blast radius is one extra response code in the metric histogram.
+	mux.HandleFunc("GET /chaos", chaos)
 }
 
 func ping(w http.ResponseWriter, _ *http.Request) {
@@ -32,6 +36,12 @@ func healthz(w http.ResponseWriter, _ *http.Request) {
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 	w.WriteHeader(http.StatusOK)
 	_, _ = w.Write([]byte("OK"))
+}
+
+func chaos(w http.ResponseWriter, _ *http.Request) {
+	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+	w.WriteHeader(http.StatusInternalServerError)
+	_, _ = w.Write([]byte("intentional 500 for alert testing"))
 }
 
 func versionHandler(v string) http.HandlerFunc {

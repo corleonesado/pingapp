@@ -14,6 +14,7 @@ import (
 
 	"github.com/corleonesado/pingapp/internal/handlers"
 	"github.com/corleonesado/pingapp/internal/logger"
+	"github.com/corleonesado/pingapp/internal/metrics"
 )
 
 // version is injected at build time via -ldflags "-X main.version=<sha>".
@@ -26,8 +27,27 @@ func main() {
 	log := logger.New(os.Stdout, level)
 	slog.SetDefault(log)
 
+	m := metrics.NewDefault()
+
+	appMux := http.NewServeMux()
+	handlers.Register(appMux, version)
+
+	// Stable route labels — anything else collapses to "unknown" so a noisy
+	// 404 scanner can't blow up the cardinality of the metric series.
+	routeOf := func(r *http.Request) string {
+		switch r.URL.Path {
+		case "/ping", "/healthz", "/version", "/chaos":
+			return r.URL.Path
+		default:
+			return "unknown"
+		}
+	}
+
+	// /metrics is exposed outside the metrics middleware so scrapes don't
+	// instrument themselves.
 	mux := http.NewServeMux()
-	handlers.Register(mux, version)
+	mux.Handle("GET /metrics", m.Handler())
+	mux.Handle("/", m.Middleware(routeOf, appMux))
 
 	srv := &http.Server{
 		Addr:              ":" + port,
