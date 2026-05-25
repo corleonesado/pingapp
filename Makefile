@@ -13,7 +13,9 @@ NAMESPACE   ?= default
 
 .PHONY: help run test cover lint fmt tidy docker-build docker-run docker-stop compose-up compose-down \
         minikube-up minikube-down minikube-load helm-lint helm-template-dev helm-template-prod \
-        deploy-dev deploy-prod uninstall rollback history status
+        deploy-dev deploy-prod uninstall rollback history status \
+        argocd-install argocd-password argocd-ui argocd-app \
+        obs-install grafana tunnel bootstrap
 
 help: ## Show this help.
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN{FS=":.*?## "}{printf "  %-18s %s\n", $$1, $$2}'
@@ -120,3 +122,30 @@ argocd-ui: ## Port-forward the ArgoCD UI to https://localhost:8081 (admin / see 
 
 argocd-app: ## Apply the pingapp Application (override image tag with TAG=vX.Y.Z).
 	sed 's|value: v0.1.0|value: $(TAG)|' deploy/argocd/application.yaml | kubectl apply -f -
+
+# ---- Observability (kube-prometheus-stack) ---------------------------------
+
+obs-install: ## Install kube-prometheus-stack (Prometheus + Grafana + Alertmanager).
+	helm repo add prometheus-community https://prometheus-community.github.io/helm-charts || true
+	helm repo update
+	helm upgrade --install kps prometheus-community/kube-prometheus-stack \
+		-n monitoring --create-namespace \
+		--set prometheus.prometheusSpec.serviceMonitorSelectorNilUsesHelmValues=false \
+		--set prometheus.prometheusSpec.ruleSelectorNilUsesHelmValues=false \
+		--set grafana.adminPassword=admin \
+		--wait --timeout 5m
+
+grafana: ## Port-forward Grafana to http://localhost:3000 (admin / admin).
+	@echo "Grafana: http://localhost:3000  (admin / admin)"
+	kubectl port-forward -n monitoring svc/kps-grafana 3000:80
+
+# ---- Public URL (cloudflared quick tunnel) --------------------------------
+
+tunnel: ## Expose the in-cluster ingress publicly via a cloudflared quick tunnel.
+	@echo "Tunneling http://$$(minikube ip):80 with Host: pingapp.local"
+	cloudflared tunnel --url http://$$(minikube ip):80 --http-host-header pingapp.local
+
+# ---- Bootstrap (Track B IaC substitute) ------------------------------------
+
+bootstrap: ## Verify the local toolchain (docker/kubectl/helm/minikube/cloudflared/...).
+	bash scripts/bootstrap.sh
