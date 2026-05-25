@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- ArgoCD installed on the local minikube; `Application` synced against `ghcr.io/corleonesado/pingapp:v0.1.0` with `automated` + `prune` + `selfHeal`.
+- Evidence: `docs/screenshots/day3-01-argocd-initial-sync.txt`, `day3-02-argocd-gitops-rollout.txt` (chart change → sync in ~20s).
+
+### Changed
+- `Makefile` `argocd-install` uses `--server-side --force-conflicts` to handle ArgoCD's large CRD annotations.
+- `values-prod.yaml`: `replicaCount` 2 → 3 (demo of the GitOps loop).
+
 ## [0.1.0] - 2026-05-21
 
 ### Added

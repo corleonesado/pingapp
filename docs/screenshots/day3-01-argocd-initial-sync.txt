@@ -1,0 +1,42 @@
+==================== DAY 3 ARGOCD EVIDENCE ====================
+
+Mon May 25 20:17:11 HKT 2026
+
+$ kubectl -n argocd get application pingapp
+NAME      SYNC STATUS   HEALTH STATUS
+pingapp   Synced        Healthy
+
+$ kubectl get deploy pingapp -o jsonpath='{.spec.template.spec.containers[0].image}'
+ghcr.io/corleonesado/pingapp:v0.1.0
+
+$ kubectl get deploy pingapp -o jsonpath='{.spec.replicas}'
+2
+
+$ kubectl get configmap pingapp-config -o jsonpath='{.data}'
+{"LOG_LEVEL":"info","PORT":"8080"}
+
+$ kubectl get pods,svc,ingress,pdb -l app.kubernetes.io/instance=pingapp
+NAME                           READY   STATUS    RESTARTS   AGE
+pod/pingapp-5679f8cf7c-2dflv   1/1     Running   0          3m54s
+pod/pingapp-5679f8cf7c-tjl2x   1/1     Running   0          3m54s
+
+NAME              TYPE        CLUSTER-IP     EXTERNAL-IP   PORT(S)   AGE
+service/pingapp   ClusterIP   10.97.97.182   <none>        80/TCP    3m54s
+
+NAME                                CLASS   HOSTS           ADDRESS        PORTS   AGE
+ingress.networking.k8s.io/pingapp   nginx   pingapp.local   192.168.49.2   80      3m54s
+
+NAME                                 MIN AVAILABLE   MAX UNAVAILABLE   ALLOWED DISRUPTIONS   AGE
+poddisruptionbudget.policy/pingapp   1               N/A               1                     6m6s
+
+$ kubectl -n argocd get application pingapp -o jsonpath='{.status.sync}'
+{
+    "comparedTo": {
+        "destination": {
+            "namespace": "default",
+            "server": "https://kubernetes.default.svc"
+        },
+        "source": {
+            "helm": {
+                "parameters": [
+                    {

@@ -1,0 +1,33 @@
+==================== DAY 3 ARGOCD GITOPS LOOP ====================
+
+Mon May 25 20:28:20 HKT 2026
+
+Commit pushed: 635e7c7  feat(chart): bump prod replicaCount 2 -> 3
+
+Timeline (chart change on main -> ArgoCD sync):
+  t=10s  replicas(spec)=2  ready=2  argocd=Synced  (old revision)
+  t=20s  replicas(spec)=3  ready=3  argocd=Synced  GITOPS SYNCED
+
+$ kubectl -n argocd get application pingapp
+NAME      SYNC STATUS   HEALTH STATUS
+pingapp   Synced        Healthy
+
+$ kubectl -n argocd get app pingapp -o jsonpath='{.status.sync.revision}{"
+"}'
+635e7c737d9e7c0c9f7d0ef07f2ff9a8dd864414
+$ kubectl get pods,deploy -l app.kubernetes.io/instance=pingapp
+NAME                           READY   STATUS    RESTARTS   AGE
+pod/pingapp-5679f8cf7c-2dflv   1/1     Running   0          15m
+pod/pingapp-5679f8cf7c-dh5gt   1/1     Running   0          5m45s
+pod/pingapp-5679f8cf7c-tjl2x   1/1     Running   0          15m
+
+NAME                      READY   UP-TO-DATE   AVAILABLE   AGE
+deployment.apps/pingapp   3/3     3            3           15m
+
+$ kubectl get deploy pingapp -o jsonpath='image={.spec.template.spec.containers[0].image}{"
+"}'
+image=ghcr.io/corleonesado/pingapp:v0.1.0
+
+$ curl --resolve pingapp.local:80:$(minikube ip) http://pingapp.local/version
+{"version":"v0.1.0"}
+
