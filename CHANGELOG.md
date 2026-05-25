@@ -7,13 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-05-25
+
 ### Added
-- ArgoCD installed on the local minikube; `Application` synced against `ghcr.io/corleonesado/pingapp:v0.1.0` with `automated` + `prune` + `selfHeal`.
-- Evidence: `docs/screenshots/day3-01-argocd-initial-sync.txt`, `day3-02-argocd-gitops-rollout.txt` (chart change → sync in ~20s).
+- `/metrics` endpoint with `prometheus/client_golang`: `http_requests_total{method,path,status}` counter, `http_request_duration_seconds{method,path}` histogram, `http_requests_in_flight` gauge — plus Go runtime + process collectors.
+- Metrics middleware with route allow-listing to keep label cardinality bounded; `/metrics` is registered outside the middleware so scrapes don't instrument themselves.
+- `/chaos` endpoint (always returns 500) for the PrometheusRule alert-fire demo.
+- Helm chart: `ServiceMonitor` and `PrometheusRule` templates, both gated by `values.*.enabled`. Prod has them enabled with `release=kps` labels for kube-prometheus-stack to discover.
+- ArgoCD `Application` was bootstrapped against `:v0.1.0` and synced the GitOps loop end-to-end in Day 3 evidence.
+- `RUNBOOK.md` — one-page operator guide (restart, logs, rollback, PAT rotation, common failures, tunnel).
+- `SECURITY.md` — threat model, image hardening, supply chain (Trivy gate + Syft SBOM), secret handling.
+- ADR-0005: public URL via cloudflared quick tunnel (pull model, no inbound exposure).
+- `scripts/bootstrap.sh` — Track B IaC substitute that verifies the local toolchain.
+- Makefile targets `obs-install` (kube-prometheus-stack), `grafana` (port-forward), `tunnel` (cloudflared), `bootstrap`.
 
 ### Changed
 - `Makefile` `argocd-install` uses `--server-side --force-conflicts` to handle ArgoCD's large CRD annotations.
-- `values-prod.yaml`: `replicaCount` 2 → 3 (demo of the GitOps loop).
+
+## [0.1.0] - 2026-05-21
 
 ## [0.1.0] - 2026-05-21
 
