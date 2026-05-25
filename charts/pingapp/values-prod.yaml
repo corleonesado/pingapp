@@ -19,3 +19,16 @@ resources:
 pdb:
   enabled: true
   minAvailable: 1
+
+serviceMonitor:
+  enabled: true
+  # kube-prometheus-stack's Prometheus selects ServiceMonitors via this label by default.
+  additionalLabels:
+    release: kps
+
+prometheusRule:
+  enabled: true
+  errorRateThreshold: 0.05
+  errorRateFor: 2m
+  additionalLabels:
+    release: kps
