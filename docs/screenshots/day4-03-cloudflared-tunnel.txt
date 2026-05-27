@@ -1,0 +1,30 @@
+==================== DAY 4: cloudflared QUICK TUNNEL ====================
+
+Demo run on 2026-05-28. URL is ephemeral — quick tunnels are minted per cloudflared
+process and invalidated when it stops. Re-run `make tunnel` at submission time to
+get a fresh URL.
+
+$ make tunnel
+tunneling http://192.168.49.2:80 (Host: pingapp.local)
+cloudflared tunnel --url http://192.168.49.2:80 --http-host-header pingapp.local
+
+PUBLIC_URL=https://suited-certification-soup-boot.trycloudflare.com
+
+$ curl https://suited-certification-soup-boot.trycloudflare.com/ping
+pong
+
+$ curl https://suited-certification-soup-boot.trycloudflare.com/version
+{"version":"v0.1.1"}
+
+$ curl -i https://suited-certification-soup-boot.trycloudflare.com/healthz | head -1
+HTTP/2 200
+
+Path: client -> https://*.trycloudflare.com (Cloudflare edge, valid TLS)
+   -> outbound tunnel from laptop's cloudflared
+     -> http://192.168.49.2:80  (minikube node IP, --http-host-header pingapp.local)
+       -> ingress-nginx
+         -> Service/pingapp
+           -> 3 x Deployment/pingapp pods (image v0.1.1)
+             -> /ping  -> "pong"
+             -> /version -> {"version":"v0.1.1"}
+             -> /healthz -> 200 OK

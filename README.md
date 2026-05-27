@@ -15,7 +15,7 @@ The brief lives in [`docs/case-study.pdf`](docs/case-study.pdf). The plan with l
 | 1 | Foundation — app, container, repo | done |
 | 2 | Kubernetes & Helm | done |
 | 3 | CI/CD & supply-chain security | done |
-| 4 | Observability & docs | pending |
+| 4 | Observability & docs | done |
 
 ---
 
@@ -26,7 +26,8 @@ The brief lives in [`docs/case-study.pdf`](docs/case-study.pdf). The plan with l
 | GET | `/ping` | `pong` (text/plain, 200) | Human/demo endpoint |
 | GET | `/healthz` | `OK` (text/plain, 200) | Kubernetes liveness/readiness |
 | GET | `/version` | `{"version":"<sha>"}` (application/json) | Build identity, injected at build |
-| GET | `/metrics` | Prometheus exposition | **Day 4** — not yet wired |
+| GET | `/metrics` | Prometheus exposition | `http_requests_total`, `http_request_duration_seconds`, `http_requests_in_flight`, plus Go runtime collectors |
+| GET | `/chaos` | `500 intentional 500 for alert testing` | Used by the `PingappHighErrorRate` alert-fire demo |
 
 Every response includes an `X-Request-ID` header. Incoming `X-Request-ID` headers are honored; otherwise a UUID v4 is generated. The same id is attached to the structured JSON access log line for that request.
 
@@ -143,8 +144,41 @@ A GitHub-hosted runner can't reach a laptop-local minikube, so deploy is a **pul
 
 ```bash
 make argocd-install          # ArgoCD into the argocd namespace
-make argocd-app TAG=v0.1.0   # Application pointed at the GHCR image
+make argocd-app TAG=v0.1.1   # Application pointed at the current GHCR image
 ```
+
+---
+
+## Observability (Day 4)
+
+Stack: kube-prometheus-stack on minikube. The chart ships a `ServiceMonitor` (Prometheus scrapes `/metrics` every 15s) and a `PrometheusRule` (alerts on `5xx rate > 5% for 2m`), both gated by values flags.
+
+```bash
+make obs-install             # helm install kube-prometheus-stack into monitoring
+make grafana                 # port-forward Grafana to http://localhost:3000 (admin/admin)
+# import the dashboard:
+#   Grafana → Dashboards → Import → upload docs/grafana-dashboard.json
+```
+
+Dashboard panels (`docs/grafana-dashboard.json`): RPS by status, latency p50/p95/p99, 5xx error rate, in-flight, pod restarts last 1h, active alerts.
+
+Alert fire / resolve was demonstrated end-to-end against `/chaos`:
+- [`day4-01-alert-firing.txt`](docs/screenshots/day4-01-alert-firing.txt) — 5xx ratio 51.6%, `alertstate=firing`.
+- [`day4-02-alert-resolved.txt`](docs/screenshots/day4-02-alert-resolved.txt) — alert resolved 150s after load stopped.
+
+### Public URL — cloudflared
+
+```bash
+make tunnel                  # prints a fresh https://<random>.trycloudflare.com URL
+```
+
+Pull tunnel from the laptop to Cloudflare's edge — no inbound exposure, automatic TLS. Ephemeral by design; rationale in [ADR-0005](docs/decisions/0005-public-url-cloudflared.md). Demo evidence: [`day4-03-cloudflared-tunnel.txt`](docs/screenshots/day4-03-cloudflared-tunnel.txt).
+
+### Operations docs
+
+- [RUNBOOK.md](RUNBOOK.md) — restart, logs, rollback, PAT rotation, common failures.
+- [SECURITY.md](SECURITY.md) — threat model, image hardening, supply chain, secrets.
+- [`scripts/bootstrap.sh`](scripts/bootstrap.sh) — verify the local toolchain on a fresh laptop (`make bootstrap`).
 
 ---
 
@@ -172,8 +206,7 @@ ADRs live in [`docs/decisions/`](docs/decisions/). Currently:
 - [ADR-0002 — Helm over raw manifests / Kustomize](docs/decisions/0002-helm-over-raw-manifests.md)
 - [ADR-0003 — Auto-deploy via ArgoCD GitOps](docs/decisions/0003-auto-deploy-argocd.md)
 - [ADR-0004 — Image scanning gate (Trivy HIGH/CRITICAL)](docs/decisions/0004-image-scanning-gate.md)
-
-Planned: ADR-0005 (tunnel choice, Day 4).
+- [ADR-0005 — Public URL via cloudflared quick tunnel](docs/decisions/0005-public-url-cloudflared.md)
 
 ---
 

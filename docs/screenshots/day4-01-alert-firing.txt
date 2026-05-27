@@ -1,0 +1,15 @@
+==================== DAY 4: PROMETHEUS ALERT FIRE ====================
+
+Thu May 28 04:44:35 HKT 2026
+
+Load: /chaos (500) x 2 + /ping (200) x 1 per second for ~4 minutes.
+
+$ promQL: rate(5xx[2m])/rate(total[2m])
+  5xx ratio = 0.5076139076628094
+
+$ Prometheus ALERTS{alertname=PingappHighErrorRate}
+  alertname=PingappHighErrorRate  alertstate=firing  severity=warning  value=1
+
+$ Active alerts (alerts API):
+  state=firing  activeAt=2026-05-27T20:41:04.510908454Z  value=5.163727959697733e-01
+  annotations: {'description': 'Error rate is 51.64%.', 'summary': 'pingapp 5xx error rate above 0.05 for 2m'}

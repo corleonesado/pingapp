@@ -157,58 +157,47 @@ Update this file as you go. It's both the plan and the progress tracker.
 > **Deliverable**: Grafana dashboard + alert, public URL, RUNBOOK, SECURITY, ADRs, architecture diagram.
 
 ### 4.1 Logs & metrics (app side)
-- [ ] Confirm structured JSON logs from Day 1 still emit
-- [ ] Add `/metrics` endpoint using `prometheus/client_golang`
-- [ ] Counters: `http_requests_total{method,path,status}`
-- [ ] Histogram: `http_request_duration_seconds{method,path}`
-- [ ] Gauge: `http_requests_in_flight`
-- [ ] Unit test for the metrics middleware
+- [x] Structured JSON logs from Day 1 still emit (verified via `kubectl logs`)
+- [x] `/metrics` endpoint using `prometheus/client_golang` (`internal/metrics`)
+- [x] Counter `http_requests_total{method,path,status}` (route allow-list to bound cardinality)
+- [x] Histogram `http_request_duration_seconds{method,path}` (default buckets)
+- [x] Gauge `http_requests_in_flight`
+- [x] Plus Go runtime + process collectors (`collectors.NewGoCollector`, `NewProcessCollector`)
+- [x] 5 unit tests on the metrics middleware (85.7% coverage)
 
 ### 4.2 Prometheus + Grafana
-- [ ] `helm repo add prometheus-community ...`
-- [ ] `helm install kps prometheus-community/kube-prometheus-stack -n monitoring --create-namespace`
-- [ ] `ServiceMonitor` for the app (add to chart)
-- [ ] Grafana dashboard panels: RPS, latency p50/p95, error rate, pod restarts
-- [ ] `PrometheusRule`: alert if `error_rate > 5%` for 5m
-- [ ] Verify alert fires (cause errors transiently) and resolves
-- [ ] Save dashboard JSON in `docs/grafana-dashboard.json`
-- [ ] Screenshots → `docs/screenshots/day4-*.png`
+- [x] `helm repo add prometheus-community ...`
+- [x] `helm install kps prometheus-community/kube-prometheus-stack -n monitoring`
+- [x] `ServiceMonitor` in our chart (Prometheus has 3/3 healthy pingapp targets)
+- [x] Grafana dashboard JSON committed at `docs/grafana-dashboard.json` (RPS by status, latency p50/p95/p99, 5xx error rate, in-flight, pod restarts, active alerts)
+- [x] `PrometheusRule` `PingappHighErrorRate`: `5xx rate > 5% for 2m`
+- [x] Alert verified end-to-end: fired at 51.6% 5xx ratio against `/chaos`, resolved 150s after load stopped
+- [x] Evidence in `docs/screenshots/day4-{01-alert-firing,02-alert-resolved}.txt`
 
 ### 4.3 Reproducibility (Track B IaC substitute)
-- [ ] `Makefile` covers every workflow command from CLAUDE.md
-- [ ] `scripts/bootstrap.sh`:
-  - Checks for `docker`, `kubectl`, `helm`, `minikube`, `cloudflared`
-  - Prints install hints for missing ones
-  - Idempotent (safe to re-run)
-- [ ] README documents: "Fresh laptop → working demo in N minutes"
+- [x] `Makefile` covers every workflow command from CLAUDE.md (run/test/lint, docker, minikube, helm, deploy-dev/prod, rollback, history, status, argocd-*, obs-install, grafana, tunnel, bootstrap)
+- [x] `scripts/bootstrap.sh` — checks docker / kubectl / helm / minikube / go / git / gh / cloudflared / golangci-lint / trivy / gitleaks; reports docker + minikube + helm-repo runtime state; idempotent
+- [x] README documents: fresh-laptop story via `make bootstrap`
 
 ### 4.4 Architecture & docs
-- [ ] `docs/architecture.png` (Excalidraw): laptop → docker → minikube → ingress → cloudflared → public URL, with Prometheus/Grafana sidecar overlay
-- [ ] `RUNBOOK.md`: one-page incident guide
-  - How to restart the app
-  - Where to find logs (`kubectl logs`, Grafana log panel if Loki added)
-  - How to roll back (`helm rollback`)
-  - How to rotate a secret
-  - Common failures + fixes
-- [ ] `SECURITY.md`:
-  - Threat model (one paragraph)
-  - Secret handling policy
-  - Vulnerability reporting contact
-  - Image scanning policy
-- [ ] **At least 3 ADRs** in `docs/decisions/` (target: 5 — add ADR-0005 for tunnel choice if time)
+- [ ] `docs/architecture.png` (Excalidraw) — user to draw and export
+- [x] `RUNBOOK.md` — one-page incident guide (restart, logs, rollback, PAT rotation, common failures, tunnel)
+- [x] `SECURITY.md` — threat model, image hardening, supply chain, secret handling, known limits
+- [x] **5 ADRs** in `docs/decisions/` (0001 language/runtime, 0002 Helm, 0003 ArgoCD, 0004 Trivy gate, 0005 cloudflared)
 
 ### 4.5 Public URL
-- [ ] `cloudflared tunnel --url http://<ingress-host>:<port>` (or `kubectl port-forward` target)
-- [ ] Document the URL in README (note: ephemeral for quick tunnels)
-- [ ] Demo: record a short gif/video of `curl <public-url>/ping` → `pong`
-- [ ] If time: register a custom subdomain and run a named tunnel
+- [x] `cloudflared tunnel --url http://$(minikube ip):80 --http-host-header pingapp.local` wired as `make tunnel`
+- [x] Demoed end-to-end: `pong`, `{"version":"v0.1.1"}`, `HTTP/2 200` over TLS
+- [x] Documented as **ephemeral** in README + ADR-0005 + `docs/screenshots/day4-03-cloudflared-tunnel.txt`
+- [ ] Bonus (skipped for scope): named tunnel with a stable subdomain
 
 ### Day 4 checkpoint
-- [ ] Grafana dashboard renders, at least one alert defined
-- [ ] RUNBOOK reads as a one-page incident guide
-- [ ] ADRs cover "why Helm", "why this base image", "why this tunnel"
-- [ ] Public URL reachable from outside your network
-- [ ] Repo is "fresh-laptop reproducible" via `make bootstrap`
+- [x] Grafana dashboard JSON renders 6 panels including ALERTS
+- [x] PrometheusRule fires and resolves on `/chaos` load (evidence captured)
+- [x] RUNBOOK reads as a one-page incident guide
+- [x] ADRs cover why Helm (0002), why this base image (0001), why this tunnel (0005), plus auto-deploy (0003) and Trivy gate (0004)
+- [x] Public URL reachable from outside the network (Cloudflare edge → laptop)
+- [x] Repo is fresh-laptop reproducible via `make bootstrap`
 
 ---
 
@@ -227,16 +216,16 @@ Pick **one** and do it well. Document in README what you learned.
 
 ## Submission checklist (from the brief)
 
-- [ ] Public GitHub repo link (or `insider-one-devops` invited if private)
-- [ ] `README.md` with setup, run, env vars, architecture notes, track chosen
-- [ ] Architecture diagram in repo (Excalidraw export OK)
-- [ ] Helm chart folder with `values-dev.yaml` and `values-prod.yaml`
-- [ ] `.github/workflows/` with green run evidence (link to a successful run)
-- [ ] Screenshots: `kubectl get pods`, `helm list`, `helm history`, `kubectl rollout status`
-- [ ] Grafana screenshot with at least one dashboard + alert visible
-- [ ] Public URL or demo video of `/ping` returning `pong`
-- [ ] `RUNBOOK.md` and `SECURITY.md`
-- [ ] **3+ ADRs**, each 3-5 sentences (target 4-5 ADRs)
+- [x] Private GitHub repo `corleonesado/pingapp` (invite `insider-one-devops` at submission time, or share link directly)
+- [x] `README.md` with setup, run, env vars, architecture notes, Track B chosen
+- [ ] Architecture diagram in repo — Excalidraw export to `docs/architecture.png` (user to draw)
+- [x] Helm chart at `charts/pingapp/` with `values-dev.yaml` and `values-prod.yaml`
+- [x] `.github/workflows/ci.yml` + `release.yml` with green runs (PR #1, PR #2, v0.1.0 + v0.1.1 releases)
+- [x] Text-log evidence in `docs/screenshots/`: kubectl get pods, helm history, kubectl rollout status, ArgoCD sync, alert fire+resolve, cloudflared tunnel
+- [x] Grafana dashboard JSON at `docs/grafana-dashboard.json`; alert demonstrated firing then resolving
+- [x] Public URL via `make tunnel` (ephemeral; capture at submission time)
+- [x] `RUNBOOK.md` and `SECURITY.md`
+- [x] **5 ADRs** at `docs/decisions/0001..0005-*.md`
 
 ---
 

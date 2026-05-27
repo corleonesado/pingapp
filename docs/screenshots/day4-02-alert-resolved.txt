@@ -1,0 +1,24 @@
+==================== DAY 4: PROMETHEUS ALERT RESOLVE ====================
+
+Thu May 28 04:47:42 HKT 2026
+
+Action: load generator stopped. Watched the alert resolve.
+
+Timeline (after load stopped):
+   t=10s   ratio=0.51  alert=firing
+   t=60s   ratio=0.42  alert=firing
+   t=110s  ratio=0.03  alert=firing  (rate window still has historic 5xx)
+   t=130s  ratio=0.00  alert=firing  (rule evaluation in progress)
+   t=150s  ratio=0.00  alert=RESOLVED
+
+$ Prometheus ALERTS{alertname=PingappHighErrorRate}
+  (no series — alert is fully resolved, no firing or pending state)
+
+$ /api/v1/alerts (current active list):
+  PingappHighErrorRate active count = 0
+
+Reference Prometheus rule:
+  expr: sum(rate(http_requests_total{job="pingapp",status=~"5.."}[2m]))
+          / sum(rate(http_requests_total{job="pingapp"}[2m]))
+          > 0.05
+  for:  2m
