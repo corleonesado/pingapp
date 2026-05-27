@@ -21,7 +21,7 @@ Trivy scans the built image and fails the job (`exit-code: 1`) on `HIGH` and `CR
 
 ## Consequences
 
-- **Positive:** A real, enforced gate — proven during Day 3 setup, when Trivy caught HIGH/CRITICAL Go **stdlib** CVEs compiled into the binary by the `golang:1.22-alpine` builder.
+- **Positive:** A real, enforced gate — proven during CI setup, when Trivy caught HIGH/CRITICAL Go **stdlib** CVEs compiled into the binary by the `golang:1.22-alpine` builder.
 - **Positive:** The remediation was a fix, not a bypass: bumping the build toolchain to `golang:1.26-alpine` (Go ≥ 1.26.3) cleared all findings. The go.mod language floor stays at 1.22; only the build toolchain moved (documented in the Dockerfile).
 - **Positive:** `--ignore-unfixed` means a red build always corresponds to an action we can take (bump base image, bump a dependency, pin a fixed version).
 - **Trade-off accepted:** A newly disclosed, fixed CVE in the base or stdlib can turn `main` red without any code change. That is intended — it is the signal to rebuild on a patched base.

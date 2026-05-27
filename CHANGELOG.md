@@ -14,7 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Metrics middleware with route allow-listing to keep label cardinality bounded; `/metrics` is registered outside the middleware so scrapes don't instrument themselves.
 - `/chaos` endpoint (always returns 500) for the PrometheusRule alert-fire demo.
 - Helm chart: `ServiceMonitor` and `PrometheusRule` templates, both gated by `values.*.enabled`. Prod has them enabled with `release=kps` labels for kube-prometheus-stack to discover.
-- ArgoCD `Application` was bootstrapped against `:v0.1.0` and synced the GitOps loop end-to-end in Day 3 evidence.
+- ArgoCD `Application` was bootstrapped against `:v0.1.0` and synced the GitOps loop end-to-end (evidence in `docs/screenshots/04-argocd-initial-sync.txt` and `05-argocd-gitops-rollout.txt`).
 - `RUNBOOK.md` — one-page operator guide (restart, logs, rollback, PAT rotation, common failures, tunnel).
 - `SECURITY.md` — threat model, image hardening, supply chain (Trivy gate + Syft SBOM), secret handling.
 - ADR-0005: public URL via cloudflared quick tunnel (pull model, no inbound exposure).

@@ -1,21 +1,10 @@
 # pingapp
 
-> Insider One DevOps internship case study — **Track B** (local minikube + tunnel).
+> Insider One DevOps internship case study — **Track B** (local minikube + cloudflared tunnel).
 
-A tiny HTTP service in Go (~10MB distroless image) shipped end-to-end through Docker, Helm, minikube, GitHub Actions, and observability — exposed via a public tunnel. The point is **not** a perfect system; it is a small, reproducible slice with clear decisions documented as ADRs.
+A tiny HTTP service in Go (~14 MB distroless image, runs as UID 65532) shipped end-to-end through Docker, Helm, minikube, GitHub Actions, ArgoCD GitOps, and a Prometheus/Grafana observability stack — exposed via a public Cloudflare quick tunnel. The point is **not** a perfect system; it is a small, reproducible slice with each non-obvious choice captured as an ADR.
 
-The brief lives in [`docs/case-study.pdf`](docs/case-study.pdf). The plan with live checkboxes lives in [`ROADMAP.md`](ROADMAP.md).
-
----
-
-## Status
-
-| Day | Theme | State |
-|---|---|---|
-| 1 | Foundation — app, container, repo | done |
-| 2 | Kubernetes & Helm | done |
-| 3 | CI/CD & supply-chain security | done |
-| 4 | Observability & docs | done |
+The brief lives in [`docs/case-study.pdf`](docs/case-study.pdf).
 
 ---
 
@@ -23,26 +12,26 @@ The brief lives in [`docs/case-study.pdf`](docs/case-study.pdf). The plan with l
 
 | Method | Path | Response | Purpose |
 |---|---|---|---|
-| GET | `/ping` | `pong` (text/plain, 200) | Human/demo endpoint |
-| GET | `/healthz` | `OK` (text/plain, 200) | Kubernetes liveness/readiness |
-| GET | `/version` | `{"version":"<sha>"}` (application/json) | Build identity, injected at build |
-| GET | `/metrics` | Prometheus exposition | `http_requests_total`, `http_request_duration_seconds`, `http_requests_in_flight`, plus Go runtime collectors |
-| GET | `/chaos` | `500 intentional 500 for alert testing` | Used by the `PingappHighErrorRate` alert-fire demo |
+| GET | `/ping` | `pong` (text/plain, 200) | Human / demo endpoint |
+| GET | `/healthz` | `OK` (text/plain, 200) | Kubernetes liveness / readiness |
+| GET | `/version` | `{"version":"<sha>"}` (application/json) | Build identity, injected at build via `-ldflags` |
+| GET | `/metrics` | Prometheus exposition | `http_requests_total{method,path,status}`, `http_request_duration_seconds`, `http_requests_in_flight`, plus Go runtime + process collectors |
+| GET | `/chaos` | `500` (off by default) | Synthetic error endpoint for the `PingappHighErrorRate` alert demo. Gated behind `ENABLE_CHAOS=1` / `chaos.enabled` — registers as a 404 otherwise |
 
-Every response includes an `X-Request-ID` header. Incoming `X-Request-ID` headers are honored; otherwise a UUID v4 is generated. The same id is attached to the structured JSON access log line for that request.
+Every response carries an `X-Request-ID` header. Incoming `X-Request-ID` headers are honored; otherwise a UUID v4 is generated. The same id is attached to the structured JSON access log line for that request.
 
 ---
 
 ## Quick start
 
-### Run locally with Go
+### Local Go
 
 ```bash
 make run                 # listens on :8080, version = current git SHA
 curl localhost:8080/ping # -> pong
 ```
 
-### Run via Docker
+### Docker
 
 ```bash
 make docker-build        # builds pingapp:<sha> and pingapp:dev
@@ -50,7 +39,7 @@ make docker-run          # forwards 8080 -> 8080
 curl localhost:8080/ping
 ```
 
-### Run via docker compose
+### docker compose
 
 ```bash
 docker compose up --build -d
@@ -64,6 +53,13 @@ docker compose down
 make test                # go test ./... -race -cover
 ```
 
+### Fresh-laptop reproducibility
+
+```bash
+make bootstrap           # scripts/bootstrap.sh — verifies docker, kubectl, helm,
+                         # minikube, go, gh, cloudflared, golangci-lint, trivy, gitleaks
+```
+
 ---
 
 ## Configuration
@@ -74,24 +70,23 @@ All config is env-driven; see [`.env.example`](.env.example).
 |---|---|---|
 | `PORT` | `8080` | HTTP listen port |
 | `LOG_LEVEL` | `info` | `debug` / `info` / `warn` / `error` |
+| `ENABLE_CHAOS` | `0` | When `1`, registers `GET /chaos` (always 500) — for alert drills only |
 | `VERSION` | (build-time) | Injected via `-ldflags "-X main.version=…"`, not read at runtime |
 
 ---
 
-## Kubernetes (Day 2)
+## Kubernetes & Helm
 
-The Helm chart lives in [`charts/pingapp/`](charts/pingapp/). One chart, two values files; the chart is hand-rolled (not from `helm create`) — rationale in [ADR-0002](docs/decisions/0002-helm-over-raw-manifests.md).
+The Helm chart lives in [`charts/pingapp/`](charts/pingapp/). One chart, two values files; hand-rolled (not from `helm create`) — rationale in [ADR-0002](docs/decisions/0002-helm-over-raw-manifests.md).
 
-### Quick start
+### Deploying
 
 ```bash
-make minikube-up     # minikube start + ingress + metrics-server addons
-make deploy-dev      # builds image, loads into minikube, helm upgrade --install with dev values
-make status          # pods, svc, ingress, rollout status
+make minikube-up                                           # start cluster + ingress + metrics-server
+make deploy-dev                                            # build, load into minikube, helm upgrade --install -f values-dev.yaml
+make status                                                # pods, svc, ingress, rollout status
 
-# /etc/hosts (one-time, optional — or use --resolve below):
-echo "$(minikube ip) dev.pingapp.local pingapp.local" | sudo tee -a /etc/hosts
-
+# reach the app:
 curl --resolve dev.pingapp.local:80:$(minikube ip) http://dev.pingapp.local/ping
 ```
 
@@ -105,23 +100,25 @@ curl --resolve dev.pingapp.local:80:$(minikube ip) http://dev.pingapp.local/ping
 | CPU request / limit | 25m / 100m | 50m / 200m |
 | Memory request / limit | 16Mi / 32Mi | 32Mi / 64Mi |
 | PodDisruptionBudget | disabled (1 replica) | `minAvailable: 1` |
+| ServiceMonitor / PrometheusRule | disabled | enabled (`release: kps` label) |
+| `/chaos` endpoint | disabled | disabled (enable temporarily via `--set chaos.enabled=true` for alert drills) |
 
-Probes (same in both): liveness on `/healthz` every 10s after 5s grace; readiness on `/healthz` every 5s after 2s. `restartPolicy` is the deployment default (`Always`). The container drops all Linux capabilities, runs as UID 65532, and uses a read-only root filesystem with `seccompProfile: RuntimeDefault`.
+Probes (same in both): liveness on `/healthz` every 10s after a 5s grace; readiness on `/healthz` every 5s after 2s. The container drops all Linux capabilities, runs as UID 65532, and uses a read-only root filesystem with `seccompProfile: RuntimeDefault`.
 
 ### Rollout / rollback
 
 ```bash
-make deploy-dev                           # rev 1
-make deploy-prod                          # rev 2 — replicas 1→2, dev→prod host
-make history                              # see helm history
-make rollback                             # back to rev 2 (or any earlier with `helm rollback pingapp <n>`)
+make deploy-dev                                            # revision 1
+make deploy-prod                                           # revision 2 — replicas 1 -> 2, dev -> prod host
+make history                                               # helm history
+make rollback                                              # back to the previous revision
 ```
 
-Evidence from a clean run is captured in [`docs/screenshots/`](docs/screenshots/) (text logs of `kubectl`, `helm history`, and ingress curls — screenshots come on Day 4 with Grafana panels).
+Captured evidence under [`docs/screenshots/`](docs/screenshots/) — text logs of `kubectl`, `helm history`, ingress curls, ArgoCD sync, alert fire/resolve, cloudflared tunnel.
 
 ---
 
-## CI/CD & supply chain (Day 3)
+## CI/CD & supply chain
 
 Two workflows under [`.github/workflows/`](.github/workflows/):
 
@@ -130,11 +127,14 @@ Two workflows under [`.github/workflows/`](.github/workflows/):
 | Job | What |
 |---|---|
 | `test` | `go test ./... -race -cover` (module + build cache) |
-| `lint` | `golangci-lint` (config in `.golangci.yml`) |
+| `lint` | `golangci-lint` v2 (config in `.golangci.yml`) |
+| `actionlint` | lints the workflow YAML itself |
 | `gitleaks` | secret scan across full history |
-| `build & scan` | docker build → **Trivy** (fails on HIGH/CRITICAL, `--ignore-unfixed`) → push `:<sha>` to GHCR **(main only)** |
+| `build & scan` | docker build → **Trivy** (fails on `HIGH/CRITICAL`, `--ignore-unfixed`) → push `:<sha>` to GHCR **(main only)** |
 
-Concurrency cancels stale runs per ref. GHCR push uses the built-in `GITHUB_TOKEN` with `packages: write` — **no PATs**. Only the immutable `:<sha>` tag is pushed; there are no `:latest` tags anywhere ([ADR-0004](docs/decisions/0004-image-scanning-gate.md)).
+Concurrency cancels stale runs per ref. GHCR push uses the built-in `GITHUB_TOKEN` with `packages: write` — **no PATs**. Only the immutable `:<sha>` tag is pushed; there are **no `:latest` tags** anywhere ([ADR-0004](docs/decisions/0004-image-scanning-gate.md)).
+
+Supply-chain hygiene also includes `.github/dependabot.yml` (weekly bumps for Go modules, GitHub Actions, and the Docker base image).
 
 **`release.yml`** — on a `v*.*.*` tag: build → Trivy scan → push `:<semver>` + `:<sha>` → generate an SPDX **SBOM** with Syft → create a GitHub Release with notes pulled from `CHANGELOG.md` and the SBOM attached.
 
@@ -143,92 +143,101 @@ Concurrency cancels stale runs per ref. GHCR push uses the built-in `GITHUB_TOKE
 A GitHub-hosted runner can't reach a laptop-local minikube, so deploy is a **pull**: ArgoCD runs inside the cluster and syncs `charts/pingapp` from this repo. Setup and rationale: [`deploy/argocd/`](deploy/argocd/) and [ADR-0003](docs/decisions/0003-auto-deploy-argocd.md).
 
 ```bash
-make argocd-install          # ArgoCD into the argocd namespace
-make argocd-app TAG=v0.1.1   # Application pointed at the current GHCR image
+make argocd-install                                        # ArgoCD into the argocd namespace
+make argocd-app TAG=v0.1.1                                 # Application pointed at the current GHCR image
 ```
 
 ---
 
-## Observability (Day 4)
+## Observability
 
-Stack: kube-prometheus-stack on minikube. The chart ships a `ServiceMonitor` (Prometheus scrapes `/metrics` every 15s) and a `PrometheusRule` (alerts on `5xx rate > 5% for 2m`), both gated by values flags.
+Stack: **kube-prometheus-stack** on minikube. The chart ships a `ServiceMonitor` (Prometheus scrapes `/metrics` every 15s) and a `PrometheusRule` (alerts on `5xx rate > 5% for 2m`), both gated by values flags.
 
 ```bash
-make obs-install             # helm install kube-prometheus-stack into monitoring
-make grafana                 # port-forward Grafana to http://localhost:3000 (admin/admin)
+make obs-install                                           # helm install kube-prometheus-stack into monitoring
+make grafana                                               # port-forward Grafana to http://localhost:3000 (admin/admin)
 # import the dashboard:
-#   Grafana → Dashboards → Import → upload docs/grafana-dashboard.json
+#   Grafana -> Dashboards -> Import -> upload docs/grafana-dashboard.json
 ```
 
-Dashboard panels (`docs/grafana-dashboard.json`): RPS by status, latency p50/p95/p99, 5xx error rate, in-flight, pod restarts last 1h, active alerts.
+Dashboard panels (`docs/grafana-dashboard.json`): RPS by status, latency p50 / p95 / p99, 5xx error rate, in-flight, pod restarts (1h), active alerts.
 
-Alert fire / resolve was demonstrated end-to-end against `/chaos`:
-- [`day4-01-alert-firing.txt`](docs/screenshots/day4-01-alert-firing.txt) — 5xx ratio 51.6%, `alertstate=firing`.
-- [`day4-02-alert-resolved.txt`](docs/screenshots/day4-02-alert-resolved.txt) — alert resolved 150s after load stopped.
+Alert fire / resolve demonstrated end-to-end against `/chaos`:
+
+- [`06-alert-firing.txt`](docs/screenshots/06-alert-firing.txt) — 5xx ratio 51.6 %, `alertstate=firing`.
+- [`07-alert-resolved.txt`](docs/screenshots/07-alert-resolved.txt) — alert resolved 150 s after load stopped.
 
 ### Public URL — cloudflared
 
 ```bash
-make tunnel                  # prints a fresh https://<random>.trycloudflare.com URL
+make tunnel                                                # prints a fresh https://<random>.trycloudflare.com URL
 ```
 
-Pull tunnel from the laptop to Cloudflare's edge — no inbound exposure, automatic TLS. Ephemeral by design; rationale in [ADR-0005](docs/decisions/0005-public-url-cloudflared.md). Demo evidence: [`day4-03-cloudflared-tunnel.txt`](docs/screenshots/day4-03-cloudflared-tunnel.txt).
+Pull tunnel from the laptop to Cloudflare's edge — no inbound exposure, automatic TLS. Ephemeral by design; rationale in [ADR-0005](docs/decisions/0005-public-url-cloudflared.md). Evidence: [`08-cloudflared-tunnel.txt`](docs/screenshots/08-cloudflared-tunnel.txt).
 
-### Operations docs
+### Operations
 
-- [RUNBOOK.md](RUNBOOK.md) — restart, logs, rollback, PAT rotation, common failures.
-- [SECURITY.md](SECURITY.md) — threat model, image hardening, supply chain, secrets.
-- [`scripts/bootstrap.sh`](scripts/bootstrap.sh) — verify the local toolchain on a fresh laptop (`make bootstrap`).
+- [`RUNBOOK.md`](RUNBOOK.md) — restart, logs, rollback, PAT rotation, common failures.
+- [`SECURITY.md`](SECURITY.md) — threat model, image hardening, supply chain, secrets.
+- [`docs/postmortem.md`](docs/postmortem.md) — real incidents during the build and what we did about them.
+- [`scripts/bootstrap.sh`](scripts/bootstrap.sh) — fresh-laptop toolchain check.
 
 ---
 
-## Architecture (Day 1 slice)
+## Architecture
 
-```
-        ┌─────────────┐
-curl ───▶ docker run  ├──▶ :8080 ─▶ /ping, /healthz, /version
-        │  pingapp    │
-        └─────────────┘
-              │
-              ▼
-        stdout JSON logs (slog)
-```
+![Architecture diagram](docs/architecture.png)
 
-Days 2–4 will extend this into: docker → minikube (Helm chart, ingress) → cloudflared tunnel → public URL, with Prometheus + Grafana scraping `/metrics`. The full diagram lives in `docs/architecture.png` (Day 4 deliverable).
+The diagram source lives at [`docs/architecture.png`](docs/architecture.png) (rendered from a Mermaid `flowchart TB` block).
 
 ---
 
-## Decisions
+## Decisions (ADRs)
 
-ADRs live in [`docs/decisions/`](docs/decisions/). Currently:
-
-- [ADR-0001 — Language and runtime: Go on distroless](docs/decisions/0001-language-and-runtime.md)
-- [ADR-0002 — Helm over raw manifests / Kustomize](docs/decisions/0002-helm-over-raw-manifests.md)
-- [ADR-0003 — Auto-deploy via ArgoCD GitOps](docs/decisions/0003-auto-deploy-argocd.md)
-- [ADR-0004 — Image scanning gate (Trivy HIGH/CRITICAL)](docs/decisions/0004-image-scanning-gate.md)
-- [ADR-0005 — Public URL via cloudflared quick tunnel](docs/decisions/0005-public-url-cloudflared.md)
+| ID | Title |
+|---|---|
+| [ADR-0001](docs/decisions/0001-language-and-runtime.md) | Language and runtime: Go on distroless |
+| [ADR-0002](docs/decisions/0002-helm-over-raw-manifests.md) | Helm over raw manifests / Kustomize |
+| [ADR-0003](docs/decisions/0003-auto-deploy-argocd.md) | Auto-deploy via ArgoCD GitOps |
+| [ADR-0004](docs/decisions/0004-image-scanning-gate.md) | Image scanning gate — Trivy on HIGH/CRITICAL |
+| [ADR-0005](docs/decisions/0005-public-url-cloudflared.md) | Public URL via cloudflared quick tunnel |
 
 ---
 
 ## Project layout
 
-See [`CLAUDE.md`](CLAUDE.md) for the full tree and conventions. Highlights:
-
-- `cmd/server/` — entrypoint (`main.go`)
-- `internal/handlers/` — HTTP handlers + middleware + tests
-- `internal/logger/` — slog setup
-- `charts/pingapp/` — Helm chart (Day 2)
-- `.github/workflows/` — CI/CD (Day 3)
-- `docs/decisions/` — ADRs
+```
+.
+├── README.md, CHANGELOG.md, RUNBOOK.md, SECURITY.md, CLAUDE.md
+├── Dockerfile, docker-compose.yaml, Makefile, .golangci.yml, .env.example
+├── cmd/server/main.go                  # entrypoint
+├── internal/
+│   ├── handlers/                       # HTTP handlers, middleware, /chaos gating, tests
+│   ├── logger/                         # slog setup
+│   └── metrics/                        # prom client_golang collectors + middleware
+├── charts/pingapp/                     # Helm chart (Deployment, Service, Ingress,
+│                                       #   ConfigMap, PDB, ServiceMonitor, PrometheusRule)
+├── deploy/argocd/                      # ArgoCD Application + setup notes
+├── scripts/bootstrap.sh                # fresh-laptop toolchain check
+├── .github/
+│   ├── workflows/ci.yml, release.yml
+│   ├── dependabot.yml
+│   ├── CODEOWNERS, PULL_REQUEST_TEMPLATE.md
+└── docs/
+    ├── case-study.pdf, architecture.png, grafana-dashboard.json
+    ├── postmortem.md
+    ├── decisions/                      # ADRs 0001 – 0005
+    └── screenshots/                    # evidence logs (kubectl, helm, ArgoCD, alerts, tunnel)
+```
 
 ---
 
-## AI Usage
+## AI usage
 
-Per the case study's house rule: this project uses Claude (chat) and Claude Code throughout. Claude Code is used for scaffolding source, writing tests, drafting ADRs, and editing docs; final review and decisions are mine. Significant decisions with AI input are captured in their respective ADRs.
+Per the case study's house rule: this project uses Claude (chat) and Claude Code throughout. Claude Code is used for scaffolding source, writing tests, drafting ADRs, and editing docs; final review and decisions are mine. Significant decisions made with AI input are captured in their respective ADRs.
 
 ---
 
 ## Submission
 
-This is a private learning submission for the Insider One DevOps internship case study, May 2026.
+Submitted for the Insider One DevOps internship case study, May 2026. Repo is public; the live demo URL is ephemeral — run `make tunnel` immediately before sharing.

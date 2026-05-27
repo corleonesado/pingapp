@@ -33,3 +33,7 @@ GitOps with ArgoCD running **inside** the local minikube. ArgoCD reaches *out* t
 - Sync policy: `automated` with `prune: true` and `selfHeal: true`.
 - The Application targets `charts/pingapp` with `values-prod.yaml`, namespace `default`.
 - Bootstrap commands and the `Application` manifest live under `deploy/argocd/` and are wired into the Makefile (`argocd-install`, `argocd-app`).
+
+## Update — 2026-05-28
+
+The repo's visibility was flipped to **public**, so anonymous Git clone now works for ArgoCD. The Kubernetes Secret `pingapp-repo` and the read-only PAT it contains are kept in place: rotating to anonymous access would be one more thing to undo if visibility is ever flipped back. The decision (pull-model GitOps from inside the cluster) is unchanged — only the credential's *necessity* moved from required to belt-and-braces.
