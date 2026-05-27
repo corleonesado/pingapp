@@ -49,6 +49,12 @@ config:
   logLevel: info
   port: 8080
 
+# Synthetic-error endpoint. Off by default; enable only when actively
+# exercising the PingappHighErrorRate alert. Setting this in prod values
+# is a deliberate, time-boxed drill — disable it again after.
+chaos:
+  enabled: false
+
 podSecurityContext:
   runAsNonRoot: true
   runAsUser: 65532

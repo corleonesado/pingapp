@@ -12,7 +12,7 @@ import (
 
 func newMux(version string) *http.ServeMux {
 	mux := http.NewServeMux()
-	Register(mux, version)
+	Register(mux, version, Options{EnableChaos: true})
 	return mux
 }
 
@@ -79,12 +79,23 @@ func TestMiddlewareAssignsRequestIDWhenAbsent(t *testing.T) {
 	}
 }
 
-func TestChaosReturns500(t *testing.T) {
+func TestChaosReturns500WhenEnabled(t *testing.T) {
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodGet, "/chaos", nil)
 	newMux("test").ServeHTTP(rec, req)
 	if rec.Code != http.StatusInternalServerError {
 		t.Fatalf("status: got %d, want 500", rec.Code)
+	}
+}
+
+func TestChaosReturns404WhenDisabled(t *testing.T) {
+	mux := http.NewServeMux()
+	Register(mux, "test", Options{EnableChaos: false})
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/chaos", nil)
+	mux.ServeHTTP(rec, req)
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("status: got %d, want 404 (chaos disabled)", rec.Code)
 	}
 }
 

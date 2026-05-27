@@ -29,8 +29,13 @@ func main() {
 
 	m := metrics.NewDefault()
 
+	chaosEnabled := getenv("ENABLE_CHAOS", "0") == "1"
+	if chaosEnabled {
+		log.Warn("chaos endpoint enabled — /chaos will return 500", "endpoint", "/chaos")
+	}
+
 	appMux := http.NewServeMux()
-	handlers.Register(appMux, version)
+	handlers.Register(appMux, version, handlers.Options{EnableChaos: chaosEnabled})
 
 	// Stable route labels — anything else collapses to "unknown" so a noisy
 	// 404 scanner can't blow up the cardinality of the metric series.

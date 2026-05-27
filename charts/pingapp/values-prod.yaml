@@ -1,6 +1,12 @@
 # Prod overrides — multiple replicas, tighter logs, PDB enabled.
 
-replicaCount: 3
+replicaCount: 2
+
+# /chaos stays disabled in prod. Enable temporarily via
+# `helm upgrade ... --set chaos.enabled=true` when actively exercising
+# the PingappHighErrorRate alert; turn it back off as soon as you're done.
+chaos:
+  enabled: false
 
 ingress:
   host: pingapp.local

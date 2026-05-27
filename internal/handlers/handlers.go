@@ -15,15 +15,21 @@ type ctxKey int
 
 const reqIDKey ctxKey = iota
 
+// Options controls optional / risky endpoints. Defaults are safe for prod.
+type Options struct {
+	// EnableChaos registers GET /chaos (always returns 500). Used to drive
+	// the synthetic-error alert; off by default — never enable in prod.
+	EnableChaos bool
+}
+
 // Register binds the application's endpoints to mux.
-func Register(mux *http.ServeMux, version string) {
+func Register(mux *http.ServeMux, version string, opts Options) {
 	mux.HandleFunc("GET /ping", ping)
 	mux.HandleFunc("GET /healthz", healthz)
 	mux.HandleFunc("GET /version", versionHandler(version))
-	// /chaos always returns 500. Used by the Day 4 alert-fire demo
-	// (PrometheusRule on 5xx error rate). Cheap to leave in place; the
-	// blast radius is one extra response code in the metric histogram.
-	mux.HandleFunc("GET /chaos", chaos)
+	if opts.EnableChaos {
+		mux.HandleFunc("GET /chaos", chaos)
+	}
 }
 
 func ping(w http.ResponseWriter, _ *http.Request) {

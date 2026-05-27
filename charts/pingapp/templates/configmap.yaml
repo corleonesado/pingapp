@@ -7,3 +7,4 @@ metadata:
 data:
   LOG_LEVEL: {{ .Values.config.logLevel | quote }}
   PORT: {{ .Values.config.port | quote }}
+  ENABLE_CHAOS: {{ ternary "1" "0" .Values.chaos.enabled | quote }}
