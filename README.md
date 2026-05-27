@@ -1,6 +1,6 @@
 # pingapp
 
-> Insider One DevOps internship case study, 4-day edition — **Track B** (local minikube + tunnel).
+> Insider One DevOps internship case study — **Track B** (local minikube + tunnel).
 
 A tiny HTTP service in Go (~10MB distroless image) shipped end-to-end through Docker, Helm, minikube, GitHub Actions, and observability — exposed via a public tunnel. The point is **not** a perfect system; it is a small, reproducible slice with clear decisions documented as ADRs.
 
