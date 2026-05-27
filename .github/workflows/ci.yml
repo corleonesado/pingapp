@@ -43,6 +43,16 @@ jobs:
         with:
           version: v2.12.2
 
+  actionlint:
+    name: actionlint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run actionlint
+        run: |
+          bash <(curl -sSfL https://raw.githubusercontent.com/rhysd/actionlint/main/scripts/download-actionlint.bash)
+          ./actionlint -color
+
   gitleaks:
     name: gitleaks
     runs-on: ubuntu-latest
@@ -63,7 +73,7 @@ jobs:
   build-scan:
     name: build & scan
     runs-on: ubuntu-latest
-    needs: [test, lint, gitleaks]
+    needs: [test, lint, actionlint, gitleaks]
     permissions:
       contents: read
       packages: write # only used by the push step, only on main
