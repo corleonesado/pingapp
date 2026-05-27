@@ -1,4 +1,4 @@
-==================== DAY 4: PROMETHEUS ALERT FIRE ====================
+==================== PROMETHEUS — ALERT FIRE ====================
 
 Thu May 28 04:44:35 HKT 2026
 

@@ -1,4 +1,4 @@
-==================== DAY 4: PROMETHEUS ALERT RESOLVE ====================
+==================== PROMETHEUS — ALERT RESOLVE ====================
 
 Thu May 28 04:47:42 HKT 2026
 

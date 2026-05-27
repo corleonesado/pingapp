@@ -1,4 +1,4 @@
-==================== DAY 4: cloudflared QUICK TUNNEL ====================
+==================== CLOUDFLARED — QUICK TUNNEL ====================
 
 Demo run on 2026-05-28. URL is ephemeral — quick tunnels are minted per cloudflared
 process and invalidated when it stops. Re-run `make tunnel` at submission time to
