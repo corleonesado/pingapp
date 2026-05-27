@@ -80,7 +80,7 @@ jobs:
           docker push ${{ env.IMAGE }}:${{ github.sha }}
 
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           name: ${{ steps.meta.outputs.version }}
           body_path: RELEASE_NOTES.md
